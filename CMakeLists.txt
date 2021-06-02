@@ -598,6 +598,8 @@ else()
 	# Vanilla Quake 2
 	add_executable(quake2 ${Client-Source} ${Client-Header} ${Platform-Specific-Source}
 			${Backends-Generic-Source})
+	add_dependencies(quake2 ref_gl1 ref_soft)
+
 	set_target_properties(quake2 PROPERTIES
 			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 			)
