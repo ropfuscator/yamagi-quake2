@@ -599,12 +599,90 @@ else()
 	add_executable(quake2 ${Client-Source} ${Client-Header} ${Platform-Specific-Source}
 			${Backends-Generic-Source})
 	add_dependencies(quake2 ref_gl1 ref_soft)
+	add_dependencies(ropfuscator-games quake2)
 
 	set_target_properties(quake2 PROPERTIES
 			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 			)
 	target_link_libraries(quake2 ${yquake2LinkerFlags} ${yquake2ClientLinkerFlags}
-			${yquake2SDLLinkerFlags} ${yquake2ZLibLinkerFlags})	
+			${yquake2SDLLinkerFlags} ${yquake2ZLibLinkerFlags})
+
+	# ropfuscated Quake 2 binaries
+
+	add_custom_target(ropfuscator-quake2)
+	add_dependencies(ropfuscator-games ropfuscator-quake2)
+
+	# registering targets
+	foreach(config_file ${ROPF_CONFIGURATION_FILES})
+		foreach(library ${ROPFUSCATOR_LIBRARIES})
+			get_filename_component(config_name ${config_file} NAME_WE)
+			get_filename_component(libname ${library} NAME_WE)
+
+			# ugly but needed because the generator expressions are not expanded at
+			# this stage
+			if(library STREQUAL $<TARGET_FILE:rop>)
+				set(libname "librop")
+			endif()
+
+		    # append -ropfuscated to source names and using .s extension
+			string(
+				REGEX
+				REPLACE "([\\w]*).c($|;)"
+						"\\1-ropfuscated-${config_name}-${libname}.s\\2"
+						QUAKE_ROPF_SOURCES "${Client-Source}")
+			
+			set(quake-ropfuscated-name "quake2-ropfuscated-${config_name}-${libname}")
+
+			add_executable(${quake-ropfuscated-name} ${QUAKE_ROPF_SOURCES} ${Client-Header} ${Platform-Specific-Source}
+			${Backends-Generic-Source})
+
+			add_dependencies(${quake-ropfuscated-name} ref_gl1 ref_soft)
+			add_dependencies(ropfuscator-quake2 ${quake-ropfuscated-name})
+
+			set_target_properties(${quake-ropfuscated-name}  PROPERTIES
+					RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+					)
+			target_link_libraries(${quake-ropfuscated-name}  ${yquake2LinkerFlags} ${yquake2ClientLinkerFlags}
+					${yquake2SDLLinkerFlags} ${yquake2ZLibLinkerFlags} ${library})
+
+
+		endforeach()
+	endforeach()
+
+	# obfuscating sources
+	foreach(source ${Client-Source})
+		get_filename_component(source_name ${source} NAME_WE)
+
+		foreach(config_file ${ROPF_CONFIGURATION_FILES})
+			foreach(library ${ROPFUSCATOR_LIBRARIES})
+				get_filename_component(config_name ${config_file} NAME_WE)
+				get_filename_component(libname ${library} NAME_WE)
+				get_filename_component(cwd ${source} DIRECTORY)
+
+				# ugly but needed because the generator expressions are not expanded at
+				# this stage
+				if(library STREQUAL $<TARGET_FILE:rop>)
+					set(libname "librop")
+				endif()
+
+				set(ropfuscated_filename "${source_name}-ropfuscated-${config_name}-${libname}")
+
+				# message("Linked flags: ${yquake2ClientLinkerFlags}")
+				generate_ropfuscated_asm(
+					SOURCE
+					${source}
+					OUTNAME
+					${cwd}/${ropfuscated_filename}
+					IRFLAGS
+					${ROPF_INCLUDES}
+					OBF_CONFIG
+					${config_file}
+					GADGET_LIB
+					${library})
+			endforeach()
+		endforeach()
+	endforeach()
+	
 endif()
 
 # Quake 2 Dedicated Server
